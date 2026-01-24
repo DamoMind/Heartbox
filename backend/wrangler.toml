@@ -1,0 +1,42 @@
+name = "donation-inventory-api"
+main = "src/index.ts"
+compatibility_date = "2024-01-01"
+
+# Environment variables (set in dashboard or .dev.vars)
+# JWT_SECRET = "your-secret-key"
+
+# D1 Database binding
+# Create your database: wrangler d1 create donation-inventory-db
+# Then update database_id below with the ID from the output
+[[d1_databases]]
+binding = "DB"
+database_name = "donation-inventory-db"
+database_id = "<your-d1-database-id>"  # Run: wrangler d1 list
+
+# Workers AI binding
+[ai]
+binding = "AI"
+
+# KV namespace for sessions (optional)
+# [[kv_namespaces]]
+# binding = "SESSIONS"
+# id = "your-kv-id"
+
+# Development settings
+[dev]
+port = 8787
+local_protocol = "http"
+
+# CORS configuration
+# For production, set to your specific frontend URL
+[vars]
+CORS_ORIGIN = "*"  # Change to "https://your-frontend.pages.dev" in production
+
+# AI Fallback Configuration (edge-ai-gateway)
+# Set EDGE_AI_GATEWAY_URL to your own gateway if using Azure fallback
+EDGE_AI_GATEWAY_URL = ""  # Optional: your edge-ai-gateway URL
+AI_DAILY_LIMIT = "1000"
+AI_WARNING_THRESHOLD = "100"
+
+# Secrets (set via wrangler secret put):
+# - EDGE_AI_GATEWAY_KEY: API key for edge-ai-gateway (if using Azure fallback)

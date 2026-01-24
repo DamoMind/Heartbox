@@ -1,0 +1,16 @@
+{
+  "name": "donation-inventory-api",
+  "version": "1.0.0",
+  "description": "Cloudflare Workers API for Donation Inventory Management",
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "db:init": "wrangler d1 execute donation-db --file=./migrations/001_init.sql"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20231121.0",
+    "typescript": "^5.3.0",
+    "wrangler": "^4.60.0"
+  }
+}

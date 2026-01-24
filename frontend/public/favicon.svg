@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <defs>
+    <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#6366f1;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#4f46e5;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  <rect width="100" height="100" rx="20" fill="url(#grad)"/>
+  <g fill="white">
+    <!-- Heart shape -->
+    <path d="M50 75 C35 60 20 50 20 35 C20 25 28 18 38 18 C45 18 50 23 50 23 C50 23 55 18 62 18 C72 18 80 25 80 35 C80 50 65 60 50 75Z" fill="white" opacity="0.9"/>
+    <!-- Package icon -->
+    <rect x="35" y="40" width="30" height="25" rx="3" fill="#6366f1"/>
+    <rect x="35" y="40" width="30" height="8" rx="2" fill="#4f46e5"/>
+    <line x1="50" y1="48" x2="50" y2="65" stroke="white" stroke-width="2"/>
+    <line x1="42" y1="55" x2="58" y2="55" stroke="white" stroke-width="2"/>
+  </g>
+</svg>

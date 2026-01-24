@@ -1,0 +1,28 @@
+{
+  "name": "Heartbox - Donation Inventory",
+  "short_name": "Heartbox",
+  "description": "Open-source donation inventory management for charities and nonprofits",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "theme_color": "#6366f1",
+  "background_color": "#f8fafc",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["productivity", "utilities"],
+  "lang": "en",
+  "dir": "ltr",
+  "prefer_related_applications": false
+}
