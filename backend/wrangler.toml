@@ -11,7 +11,7 @@ compatibility_date = "2024-01-01"
 [[d1_databases]]
 binding = "DB"
 database_name = "donation-inventory-db"
-database_id = "<your-d1-database-id>"  # Run: wrangler d1 list
+database_id = "e34f809d-45c4-41ca-ba6b-277630eb6e0c"  # Run: wrangler d1 list
 
 # Workers AI binding
 [ai]

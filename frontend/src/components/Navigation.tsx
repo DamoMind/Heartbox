@@ -1,13 +1,13 @@
 import { NavLink, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { LayoutDashboard, Package, ScanLine, History, Settings } from 'lucide-react';
+import { LayoutDashboard, Package, ScanLine, Store, Settings } from 'lucide-react';
 import { clsx } from 'clsx';
 
 const navItems = [
   { path: '/', icon: LayoutDashboard, labelKey: 'nav.dashboard' },
   { path: '/inventory', icon: Package, labelKey: 'nav.inventory' },
   { path: '/scan', icon: ScanLine, labelKey: 'nav.scan' },
-  { path: '/history', icon: History, labelKey: 'nav.history' },
+  { path: '/marketplace', icon: Store, labelKey: 'nav.marketplace' },
   { path: '/settings', icon: Settings, labelKey: 'nav.settings' },
 ];
 

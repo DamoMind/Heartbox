@@ -1,17 +1,17 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { ArrowLeft, Save, Trash2 } from 'lucide-react';
-import * as Icons from 'lucide-react';
+import { ArrowLeft, Save, Trash2, Heart, Apple, Home, Building, GraduationCap, Package, ShoppingBag, Store, Boxes, LucideIcon } from 'lucide-react';
 import { Card, CardHeader, CardTitle, Button, Input, Select } from '@/components/ui';
 import { useOrganization } from '@/contexts/OrganizationContext';
-import { Organization, OrganizationType, ORGANIZATION_TYPE_INFO } from '@/types';
+import { OrganizationType, ORGANIZATION_TYPE_INFO } from '@/types';
 import { clsx } from 'clsx';
 
-const ICON_OPTIONS = [
-  'Heart', 'Apple', 'Home', 'Building', 'GraduationCap', 
-  'Package', 'ShoppingBag', 'Warehouse', 'Store', 'Boxes'
-];
+const ICON_MAP: Record<string, LucideIcon> = {
+  Heart, Apple, Home, Building, GraduationCap, Package, ShoppingBag, Store, Boxes,
+};
+
+const ICON_OPTIONS = Object.keys(ICON_MAP);
 
 const COLOR_OPTIONS = [
   '#ec4899', '#ef4444', '#f97316', '#f59e0b', '#84cc16',
@@ -101,8 +101,8 @@ export function OrganizationForm() {
     }
   };
 
-  const getIcon = (iconName: string) => {
-    return (Icons as Record<string, React.ComponentType<{ className?: string }>>)[iconName] || Icons.Heart;
+  const getIcon = (iconName: string): LucideIcon => {
+    return ICON_MAP[iconName] || Heart;
   };
 
   const PreviewIcon = getIcon(formData.icon);
@@ -131,7 +131,7 @@ export function OrganizationForm() {
           >
             <PreviewIcon
               className="h-8 w-8"
-              style={{ color: formData.color }}
+              color={formData.color}
             />
           </div>
           <div>

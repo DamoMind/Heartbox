@@ -3,7 +3,7 @@ import { Navigation } from '@/components/Navigation';
 import { OfflineBanner } from '@/components/OfflineBanner';
 import { SyncProvider } from '@/contexts/SyncContext';
 import { OrganizationProvider } from '@/contexts/OrganizationContext';
-import { Dashboard, Inventory, ScanPage, History, Settings, ItemForm, OrganizationForm, Marketplace } from '@/pages';
+import { Dashboard, Inventory, ScanPage, History, Settings, ItemForm, OrganizationForm, Marketplace, MarketplaceForm } from '@/pages';
 
 function App() {
   return (
@@ -26,6 +26,8 @@ function App() {
               <Route path="/organizations/new" element={<OrganizationForm />} />
               <Route path="/organizations/:id" element={<OrganizationForm />} />
               <Route path="/marketplace" element={<Marketplace />} />
+              <Route path="/marketplace/new" element={<MarketplaceForm />} />
+              <Route path="/marketplace/:id" element={<MarketplaceForm />} />
             </Routes>
           </main>
 

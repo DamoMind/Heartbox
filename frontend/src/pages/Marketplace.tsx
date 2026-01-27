@@ -5,7 +5,7 @@ import {
   Store,
   Plus,
   Package,
-  HandHeart,
+  Heart,
   Search,
   Filter,
   ChevronRight,
@@ -143,7 +143,7 @@ export function Marketplace() {
           {offers.length > 0 && (
             <div className="space-y-3">
               <h2 className="font-semibold text-slate-700 flex items-center gap-2">
-                <HandHeart className="h-5 w-5 text-success-500" />
+                <Heart className="h-5 w-5 text-success-500" />
                 {t('marketplace.availableItems')} ({offers.length})
               </h2>
               {offers.map((listing) => (

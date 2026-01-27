@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { ArrowLeft, Save, HandHeart, Package } from 'lucide-react';
+import { ArrowLeft, Save, Heart, Package } from 'lucide-react';
 import { Card, CardHeader, CardTitle, Button, Input, Select } from '@/components/ui';
 import { useOrganization } from '@/contexts/OrganizationContext';
 import { useInventory } from '@/hooks/useInventory';
@@ -117,7 +117,7 @@ export function MarketplaceForm() {
                 : 'border-slate-200 hover:border-slate-300'
             )}
           >
-            <HandHeart className={clsx(
+            <Heart className={clsx(
               'h-8 w-8',
               formData.type === 'offer' ? 'text-success-600' : 'text-slate-400'
             )} />

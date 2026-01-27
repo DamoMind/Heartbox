@@ -1,20 +1,22 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ChevronDown, Plus, Check } from 'lucide-react';
-import * as Icons from 'lucide-react';
+import { ChevronDown, Plus, Check, Heart, Apple, Home, Building, GraduationCap, Package, ShoppingBag, Boxes, Store, LucideIcon } from 'lucide-react';
 import { useOrganization } from '@/contexts/OrganizationContext';
 import { Organization } from '@/types';
 import { clsx } from 'clsx';
 import { Link } from 'react-router-dom';
+
+const ICON_MAP: Record<string, LucideIcon> = {
+  Heart, Apple, Home, Building, GraduationCap, Package, ShoppingBag, Boxes, Store,
+};
 
 export function OrganizationSwitcher() {
   const { t } = useTranslation();
   const { organizations, currentOrganization, setCurrentOrganization } = useOrganization();
   const [isOpen, setIsOpen] = useState(false);
 
-  const getIcon = (iconName: string) => {
-    const IconComponent = (Icons as Record<string, React.ComponentType<{ className?: string }>>)[iconName] || Icons.Heart;
-    return IconComponent;
+  const getIcon = (iconName: string): LucideIcon => {
+    return ICON_MAP[iconName] || Heart;
   };
 
   const handleSelect = async (org: Organization) => {
@@ -40,7 +42,7 @@ export function OrganizationSwitcher() {
         >
           <CurrentIcon
             className="h-4 w-4"
-            style={{ color: currentOrganization.color }}
+            color={currentOrganization.color}
           />
         </div>
         <span className="font-medium text-slate-700 max-w-[120px] truncate">
@@ -88,7 +90,7 @@ export function OrganizationSwitcher() {
                     >
                       <OrgIcon
                         className="h-4 w-4"
-                        style={{ color: org.color }}
+                        color={org.color}
                       />
                     </div>
                     <div className="flex-1 text-left min-w-0">
