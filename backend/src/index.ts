@@ -170,7 +170,7 @@ async function handleRequest(
 
 async function getOrganizations(env: Env): Promise<Response> {
   const result = await env.DB.prepare(`
-    SELECT * FROM organizations ORDER BY is_default DESC, name ASC
+    SELECT * FROM organizations ORDER BY created_at ASC, name ASC
   `).all();
 
   return json(result.results?.map(mapOrganizationFromDB) || []);
@@ -194,19 +194,16 @@ async function createOrganization(request: Request, env: Env): Promise<Response>
   const id = (body.id as string) || crypto.randomUUID();
 
   await env.DB.prepare(`
-    INSERT INTO organizations (id, name, description, type, icon, color, contact_email, contact_phone, address, is_default, created_at, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO organizations (id, name, description, type, contact_email, location, is_public, created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).bind(
     id,
     body.name,
     body.description || null,
     body.type || 'charity',
-    body.icon || 'Heart',
-    body.color || '#6366f1',
     body.contactEmail || null,
-    body.contactPhone || null,
-    body.address || null,
-    body.isDefault ? 1 : 0,
+    body.location || null,
+    body.isPublic ? 1 : 0,
     now,
     now
   ).run();
@@ -218,34 +215,23 @@ async function updateOrganization(id: string, request: Request, env: Env): Promi
   const body = await request.json() as Record<string, unknown>;
   const now = new Date().toISOString();
 
-  // If setting as default, unset other defaults first
-  if (body.isDefault) {
-    await env.DB.prepare(`UPDATE organizations SET is_default = 0`).run();
-  }
-
   await env.DB.prepare(`
     UPDATE organizations SET
       name = COALESCE(?, name),
       description = ?,
       type = COALESCE(?, type),
-      icon = COALESCE(?, icon),
-      color = COALESCE(?, color),
       contact_email = ?,
-      contact_phone = ?,
-      address = ?,
-      is_default = COALESCE(?, is_default),
+      location = ?,
+      is_public = COALESCE(?, is_public),
       updated_at = ?
     WHERE id = ?
   `).bind(
     body.name,
     body.description !== undefined ? body.description : null,
     body.type,
-    body.icon,
-    body.color,
     body.contactEmail !== undefined ? body.contactEmail : null,
-    body.contactPhone !== undefined ? body.contactPhone : null,
-    body.address !== undefined ? body.address : null,
-    body.isDefault !== undefined ? (body.isDefault ? 1 : 0) : null,
+    body.location !== undefined ? body.location : null,
+    body.isPublic !== undefined ? (body.isPublic ? 1 : 0) : null,
     now,
     id
   ).run();
@@ -254,16 +240,16 @@ async function updateOrganization(id: string, request: Request, env: Env): Promi
 }
 
 async function deleteOrganization(id: string, env: Env): Promise<Response> {
-  // Check if it's the default organization
-  const org = await env.DB.prepare(`SELECT is_default FROM organizations WHERE id = ?`).bind(id).first();
-  if (org?.is_default) {
-    return error('Cannot delete default organization', 400);
+  const org = await env.DB.prepare(`SELECT id FROM organizations WHERE id = ?`).bind(id).first();
+  if (!org) {
+    return error('Organization not found', 404);
   }
 
   // Delete all items and transactions in this organization
   await env.DB.batch([
     env.DB.prepare(`DELETE FROM transactions WHERE organization_id = ?`).bind(id),
     env.DB.prepare(`DELETE FROM items WHERE organization_id = ?`).bind(id),
+    env.DB.prepare(`DELETE FROM organization_members WHERE organization_id = ?`).bind(id),
     env.DB.prepare(`DELETE FROM organizations WHERE id = ?`).bind(id),
   ]);
 
@@ -1241,12 +1227,9 @@ function mapOrganizationFromDB(row: Record<string, unknown>) {
     name: row.name,
     description: row.description,
     type: row.type,
-    icon: row.icon,
-    color: row.color,
     contactEmail: row.contact_email,
-    contactPhone: row.contact_phone,
-    address: row.address,
-    isDefault: row.is_default === 1,
+    location: row.location,
+    isPublic: row.is_public === 1,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
