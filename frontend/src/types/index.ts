@@ -20,6 +20,24 @@ export type UserRole = 'admin' | 'volunteer';
 
 export type SyncStatus = 'synced' | 'pending' | 'failed';
 
+export type OrganizationType = 'charity' | 'food_bank' | 'shelter' | 'school' | 'other';
+
+// Organization (inventory container)
+export interface Organization {
+  id: string;
+  name: string;
+  description?: string;
+  type: OrganizationType;
+  icon: string;
+  color: string;
+  contactEmail?: string;
+  contactPhone?: string;
+  address?: string;
+  isDefault: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface DonationItem {
   id: string;
   barcode: string;
@@ -33,6 +51,7 @@ export interface DonationItem {
   location: string;          // Storage location (e.g., "Shelf A-1")
   notes?: string;
   imageUrl?: string;
+  organizationId: string;    // Which organization/inventory this belongs to
   createdAt: string;
   updatedAt: string;
   syncStatus: SyncStatus;
@@ -48,6 +67,7 @@ export interface Transaction {
   performedBy: string;       // User ID
   performedAt: string;
   notes?: string;
+  organizationId: string;    // Which organization/inventory this belongs to
   syncStatus: SyncStatus;
 }
 
@@ -66,6 +86,7 @@ export interface AppSettings {
   lowStockAlertEnabled: boolean;
   autoSync: boolean;
   lastSyncAt?: string;
+  currentOrganizationId?: string;  // Currently selected organization
 }
 
 export interface DashboardStats {
@@ -107,3 +128,60 @@ export const CONDITION_INFO: Record<ItemCondition, { labelKey: string; color: st
   good: { labelKey: 'conditions.good', color: '#f59e0b' },
   fair: { labelKey: 'conditions.fair', color: '#f97316' },
 };
+
+// Organization type metadata for UI
+export const ORGANIZATION_TYPE_INFO: Record<OrganizationType, { labelKey: string; icon: string; color: string }> = {
+  charity: { labelKey: 'orgTypes.charity', icon: 'Heart', color: '#ec4899' },
+  food_bank: { labelKey: 'orgTypes.foodBank', icon: 'Apple', color: '#ef4444' },
+  shelter: { labelKey: 'orgTypes.shelter', icon: 'Home', color: '#8b5cf6' },
+  school: { labelKey: 'orgTypes.school', icon: 'GraduationCap', color: '#3b82f6' },
+  other: { labelKey: 'orgTypes.other', icon: 'Building', color: '#64748b' },
+};
+
+// ============================================
+// Marketplace Types
+// ============================================
+
+export type ListingType = 'offer' | 'need';
+export type ListingStatus = 'active' | 'fulfilled' | 'expired' | 'cancelled';
+export type ExchangeStatus = 'pending' | 'accepted' | 'rejected' | 'completed' | 'cancelled';
+
+export interface MarketplaceListing {
+  id: string;
+  organizationId: string;
+  organizationName?: string;
+  type: ListingType;
+  itemCategory: ItemCategory;
+  itemName: string;
+  quantity: number;
+  unit: string;
+  condition?: ItemCondition;
+  description?: string;
+  expiryDate?: string;
+  pickupAddress?: string;
+  pickupNotes?: string;
+  status: ListingStatus;
+  expiresAt?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ExchangeRequest {
+  id: string;
+  listingId: string;
+  listing?: MarketplaceListing;
+  requestorOrgId: string;
+  requestorOrgName?: string;
+  providerOrgId: string;
+  providerOrgName?: string;
+  quantity: number;
+  message?: string;
+  contactName?: string;
+  contactPhone?: string;
+  contactEmail?: string;
+  status: ExchangeStatus;
+  responseMessage?: string;
+  createdAt: string;
+  respondedAt?: string;
+  completedAt?: string;
+}

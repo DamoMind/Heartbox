@@ -1,5 +1,5 @@
 import { openDB, DBSchema, IDBPDatabase } from 'idb';
-import { DonationItem, Transaction, PendingOperation, AppSettings } from '@/types';
+import { DonationItem, Transaction, PendingOperation, AppSettings, Organization } from '@/types';
 
 interface DonationDB extends DBSchema {
   items: {
@@ -9,6 +9,7 @@ interface DonationDB extends DBSchema {
       'by-barcode': string;
       'by-category': string;
       'by-syncStatus': string;
+      'by-organizationId': string;
     };
   };
   transactions: {
@@ -19,6 +20,7 @@ interface DonationDB extends DBSchema {
       'by-type': string;
       'by-date': string;
       'by-syncStatus': string;
+      'by-organizationId': string;
     };
   };
   pendingOperations: {
@@ -32,10 +34,17 @@ interface DonationDB extends DBSchema {
     key: string;
     value: AppSettings;
   };
+  organizations: {
+    key: string;
+    value: Organization;
+    indexes: {
+      'by-isDefault': number;
+    };
+  };
 }
 
 const DB_NAME = 'donation-inventory-db';
-const DB_VERSION = 1;
+const DB_VERSION = 2;  // Bumped version for new schema
 
 let dbInstance: IDBPDatabase<DonationDB> | null = null;
 
@@ -43,13 +52,21 @@ export async function getDB(): Promise<IDBPDatabase<DonationDB>> {
   if (dbInstance) return dbInstance;
 
   dbInstance = await openDB<DonationDB>(DB_NAME, DB_VERSION, {
-    upgrade(db) {
+    upgrade(db, oldVersion) {
       // Items store
       if (!db.objectStoreNames.contains('items')) {
         const itemStore = db.createObjectStore('items', { keyPath: 'id' });
         itemStore.createIndex('by-barcode', 'barcode', { unique: true });
         itemStore.createIndex('by-category', 'category');
         itemStore.createIndex('by-syncStatus', 'syncStatus');
+        itemStore.createIndex('by-organizationId', 'organizationId');
+      } else if (oldVersion < 2) {
+        // Add organizationId index to existing store
+        const tx = (db as unknown as IDBPDatabase<DonationDB>).transaction('items', 'readwrite');
+        const store = tx.objectStore('items');
+        if (!store.indexNames.contains('by-organizationId')) {
+          store.createIndex('by-organizationId', 'organizationId');
+        }
       }
 
       // Transactions store
@@ -59,6 +76,13 @@ export async function getDB(): Promise<IDBPDatabase<DonationDB>> {
         txStore.createIndex('by-type', 'type');
         txStore.createIndex('by-date', 'performedAt');
         txStore.createIndex('by-syncStatus', 'syncStatus');
+        txStore.createIndex('by-organizationId', 'organizationId');
+      } else if (oldVersion < 2) {
+        const tx = (db as unknown as IDBPDatabase<DonationDB>).transaction('transactions', 'readwrite');
+        const store = tx.objectStore('transactions');
+        if (!store.indexNames.contains('by-organizationId')) {
+          store.createIndex('by-organizationId', 'organizationId');
+        }
       }
 
       // Pending operations store (for offline sync queue)
@@ -70,6 +94,12 @@ export async function getDB(): Promise<IDBPDatabase<DonationDB>> {
       // Settings store
       if (!db.objectStoreNames.contains('settings')) {
         db.createObjectStore('settings', { keyPath: 'id' });
+      }
+
+      // Organizations store (new in v2)
+      if (!db.objectStoreNames.contains('organizations')) {
+        const orgStore = db.createObjectStore('organizations', { keyPath: 'id' });
+        orgStore.createIndex('by-isDefault', 'isDefault');
       }
     },
   });
@@ -103,6 +133,17 @@ export async function getItemsByCategory(category: string): Promise<DonationItem
 
 export async function getLowStockItems(): Promise<DonationItem[]> {
   const items = await getAllItems();
+  return items.filter(item => item.quantity <= item.minStock);
+}
+
+// Organization-filtered item operations
+export async function getItemsByOrganization(organizationId: string): Promise<DonationItem[]> {
+  const db = await getDB();
+  return db.getAllFromIndex('items', 'by-organizationId', organizationId);
+}
+
+export async function getLowStockItemsByOrganization(organizationId: string): Promise<DonationItem[]> {
+  const items = await getItemsByOrganization(organizationId);
   return items.filter(item => item.quantity <= item.minStock);
 }
 
@@ -165,6 +206,35 @@ export async function getTransactionsByItem(itemId: string): Promise<Transaction
 export async function getRecentTransactions(limit = 10): Promise<Transaction[]> {
   const transactions = await getAllTransactions();
   return transactions.slice(0, limit);
+}
+
+// Organization-filtered transaction operations
+export async function getTransactionsByOrganization(organizationId: string, limit = 50): Promise<Transaction[]> {
+  const db = await getDB();
+  const transactions = await db.getAllFromIndex('transactions', 'by-organizationId', organizationId);
+  return transactions
+    .sort((a, b) => new Date(b.performedAt).getTime() - new Date(a.performedAt).getTime())
+    .slice(0, limit);
+}
+
+export async function getTodayTransactionsByOrganization(organizationId: string): Promise<{ inbound: number; outbound: number }> {
+  const transactions = await getTransactionsByOrganization(organizationId, 1000);
+  const today = new Date().toISOString().split('T')[0];
+
+  let inbound = 0;
+  let outbound = 0;
+
+  for (const tx of transactions) {
+    if (tx.performedAt.startsWith(today)) {
+      if (tx.type === 'in') {
+        inbound += tx.quantity;
+      } else {
+        outbound += tx.quantity;
+      }
+    }
+  }
+
+  return { inbound, outbound };
 }
 
 export async function getTodayTransactions(): Promise<{ inbound: number; outbound: number }> {
@@ -277,6 +347,32 @@ export async function saveSettings(settings: Partial<AppSettings>): Promise<void
 export async function getDashboardStats() {
   const items = await getAllItems();
   const todayTx = await getTodayTransactions();
+
+  const categoryBreakdown: Record<string, number> = {};
+  let totalQuantity = 0;
+  let lowStockCount = 0;
+
+  for (const item of items) {
+    totalQuantity += item.quantity;
+    categoryBreakdown[item.category] = (categoryBreakdown[item.category] || 0) + item.quantity;
+    if (item.quantity <= item.minStock) {
+      lowStockCount++;
+    }
+  }
+
+  return {
+    totalItems: items.length,
+    totalQuantity,
+    lowStockCount,
+    recentInbound: todayTx.inbound,
+    recentOutbound: todayTx.outbound,
+    categoryBreakdown,
+  };
+}
+
+export async function getDashboardStatsByOrganization(organizationId: string) {
+  const items = await getItemsByOrganization(organizationId);
+  const todayTx = await getTodayTransactionsByOrganization(organizationId);
 
   const categoryBreakdown: Record<string, number> = {};
   let totalQuantity = 0;

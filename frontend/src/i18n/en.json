@@ -172,6 +172,37 @@
     "good": "Good",
     "fair": "Fair"
   },
+  "organizations": {
+    "switchTo": "Switch Inventory",
+    "createNew": "Create New Inventory",
+    "edit": "Edit Inventory",
+    "newInventory": "New Inventory",
+    "basicInfo": "Basic Information",
+    "name": "Inventory Name",
+    "namePlaceholder": "e.g., Food Pantry",
+    "description": "Description",
+    "descriptionPlaceholder": "Optional description",
+    "type": "Type",
+    "appearance": "Appearance",
+    "icon": "Icon",
+    "color": "Color",
+    "contactInfo": "Contact Information (Optional)",
+    "email": "Email",
+    "phone": "Phone",
+    "address": "Address",
+    "addressPlaceholder": "123 Main St, City",
+    "create": "Create Inventory",
+    "confirmDelete": "Are you sure you want to delete this inventory? All items and transactions will be removed.",
+    "cannotDeleteDefault": "Cannot delete the default inventory",
+    "deleteFailed": "Failed to delete inventory"
+  },
+  "orgTypes": {
+    "charity": "Charity",
+    "foodBank": "Food Bank",
+    "shelter": "Shelter",
+    "school": "School",
+    "other": "Other"
+  },
   "units": {
     "pieces": "pieces",
     "packs": "packs",
@@ -199,8 +230,10 @@
   "common": {
     "loading": "Loading...",
     "save": "Save",
+    "saving": "Saving...",
     "cancel": "Cancel",
     "delete": "Delete",
+    "deleting": "Deleting...",
     "edit": "Edit",
     "add": "Add",
     "search": "Search",

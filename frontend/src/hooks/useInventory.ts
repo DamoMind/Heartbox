@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useContext } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import {
   getAllItems,
@@ -10,6 +10,10 @@ import {
   saveTransaction,
   getRecentTransactions,
   getDashboardStats,
+  getItemsByOrganization,
+  getLowStockItemsByOrganization,
+  getTransactionsByOrganization,
+  getDashboardStatsByOrganization,
 } from '@/services/db';
 import {
   DonationItem,
@@ -20,7 +24,11 @@ import {
   DashboardStats,
 } from '@/types';
 
+// Custom hook to get organization ID from context (to avoid circular imports)
+import { useOrganization } from '@/contexts/OrganizationContext';
+
 export function useInventory() {
+  const { currentOrganization } = useOrganization();
   const [items, setItems] = useState<DonationItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -28,7 +36,9 @@ export function useInventory() {
   const loadItems = useCallback(async () => {
     try {
       setLoading(true);
-      const data = await getAllItems();
+      const data = currentOrganization 
+        ? await getItemsByOrganization(currentOrganization.id)
+        : await getAllItems();
       setItems(data);
       setError(null);
     } catch (err) {
@@ -37,7 +47,7 @@ export function useInventory() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [currentOrganization]);
 
   useEffect(() => {
     loadItems();
@@ -47,6 +57,7 @@ export function useInventory() {
     const newItem: DonationItem = {
       ...item,
       id: uuidv4(),
+      organizationId: currentOrganization?.id || 'default',
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
       syncStatus: 'pending',
@@ -55,7 +66,7 @@ export function useInventory() {
     await saveItem(newItem);
     await loadItems();
     return newItem;
-  }, [loadItems]);
+  }, [loadItems, currentOrganization]);
 
   const updateItem = useCallback(async (item: DonationItem) => {
     await saveItem(item);
@@ -85,36 +96,43 @@ export function useInventory() {
     deleteItem,
     findByBarcode,
     findById,
+    organizationId: currentOrganization?.id,
   };
 }
 
 export function useLowStockItems() {
+  const { currentOrganization } = useOrganization();
   const [items, setItems] = useState<DonationItem[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const load = async () => {
       setLoading(true);
-      const data = await getLowStockItems();
+      const data = currentOrganization
+        ? await getLowStockItemsByOrganization(currentOrganization.id)
+        : await getLowStockItems();
       setItems(data);
       setLoading(false);
     };
     load();
-  }, []);
+  }, [currentOrganization]);
 
   return { items, loading };
 }
 
 export function useTransactions(limit = 20) {
+  const { currentOrganization } = useOrganization();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
 
   const loadTransactions = useCallback(async () => {
     setLoading(true);
-    const data = await getRecentTransactions(limit);
+    const data = currentOrganization
+      ? await getTransactionsByOrganization(currentOrganization.id, limit)
+      : await getRecentTransactions(limit);
     setTransactions(data);
     setLoading(false);
-  }, [limit]);
+  }, [limit, currentOrganization]);
 
   useEffect(() => {
     loadTransactions();
@@ -139,13 +157,14 @@ export function useTransactions(limit = 20) {
       performedBy,
       performedAt: new Date().toISOString(),
       notes,
+      organizationId: currentOrganization?.id || 'default',
       syncStatus: 'pending',
     };
 
     await saveTransaction(transaction);
     await loadTransactions();
     return transaction;
-  }, [loadTransactions]);
+  }, [loadTransactions, currentOrganization]);
 
   return {
     transactions,
@@ -156,15 +175,18 @@ export function useTransactions(limit = 20) {
 }
 
 export function useDashboardStats() {
+  const { currentOrganization } = useOrganization();
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
 
   const loadStats = useCallback(async () => {
     setLoading(true);
-    const data = await getDashboardStats();
+    const data = currentOrganization
+      ? await getDashboardStatsByOrganization(currentOrganization.id)
+      : await getDashboardStats();
     setStats(data as DashboardStats);
     setLoading(false);
-  }, []);
+  }, [currentOrganization]);
 
   useEffect(() => {
     loadStats();

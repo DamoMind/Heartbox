@@ -85,9 +85,22 @@ async function handleRequest(
     return json({ status: 'ok', timestamp: new Date().toISOString() });
   }
 
+  // Organizations routes
+  if (path === '/api/organizations') {
+    if (method === 'GET') return getOrganizations(env);
+    if (method === 'POST') return createOrganization(request, env);
+  }
+
+  if (path.startsWith('/api/organizations/')) {
+    const id = path.split('/')[3];
+    if (method === 'GET') return getOrganization(id, env);
+    if (method === 'PUT') return updateOrganization(id, request, env);
+    if (method === 'DELETE') return deleteOrganization(id, env);
+  }
+
   // Items routes
   if (path === '/api/items') {
-    if (method === 'GET') return getItems(env);
+    if (method === 'GET') return getItems(request, env);
     if (method === 'POST') return createItem(request, env);
   }
 
@@ -106,7 +119,7 @@ async function handleRequest(
 
   // Dashboard stats
   if (path === '/api/stats') {
-    if (method === 'GET') return getStats(env);
+    if (method === 'GET') return getStats(request, env);
   }
 
   // Sync endpoint (for offline-first sync)
@@ -130,17 +143,153 @@ async function handleRequest(
     if (method === 'GET') return getAIQuotaStatus(env);
   }
 
+  // Marketplace routes
+  if (path === '/api/marketplace/listings') {
+    const url = new URL(request.url);
+    if (method === 'GET') return getListings(env, url);
+    if (method === 'POST') return createListing(request, env);
+  }
+
+  if (path === '/api/marketplace/requests') {
+    const url = new URL(request.url);
+    if (method === 'GET') return getExchangeRequests(env, url);
+    if (method === 'POST') return createExchangeRequest(request, env);
+  }
+
+  if (path.startsWith('/api/marketplace/requests/')) {
+    const id = path.split('/')[4];
+    if (method === 'PUT') return updateExchangeRequest(id, request, env);
+  }
+
   return error('Not found', 404);
+}
+
+// ============================================
+// Organizations Handlers
+// ============================================
+
+async function getOrganizations(env: Env): Promise<Response> {
+  const result = await env.DB.prepare(`
+    SELECT * FROM organizations ORDER BY is_default DESC, name ASC
+  `).all();
+
+  return json(result.results?.map(mapOrganizationFromDB) || []);
+}
+
+async function getOrganization(id: string, env: Env): Promise<Response> {
+  const result = await env.DB.prepare(`
+    SELECT * FROM organizations WHERE id = ?
+  `).bind(id).first();
+
+  if (!result) {
+    return error('Organization not found', 404);
+  }
+
+  return json(mapOrganizationFromDB(result));
+}
+
+async function createOrganization(request: Request, env: Env): Promise<Response> {
+  const body = await request.json() as Record<string, unknown>;
+  const now = new Date().toISOString();
+  const id = (body.id as string) || crypto.randomUUID();
+
+  await env.DB.prepare(`
+    INSERT INTO organizations (id, name, description, type, icon, color, contact_email, contact_phone, address, is_default, created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).bind(
+    id,
+    body.name,
+    body.description || null,
+    body.type || 'charity',
+    body.icon || 'Heart',
+    body.color || '#6366f1',
+    body.contactEmail || null,
+    body.contactPhone || null,
+    body.address || null,
+    body.isDefault ? 1 : 0,
+    now,
+    now
+  ).run();
+
+  return json({ success: true, id }, 201);
+}
+
+async function updateOrganization(id: string, request: Request, env: Env): Promise<Response> {
+  const body = await request.json() as Record<string, unknown>;
+  const now = new Date().toISOString();
+
+  // If setting as default, unset other defaults first
+  if (body.isDefault) {
+    await env.DB.prepare(`UPDATE organizations SET is_default = 0`).run();
+  }
+
+  await env.DB.prepare(`
+    UPDATE organizations SET
+      name = COALESCE(?, name),
+      description = ?,
+      type = COALESCE(?, type),
+      icon = COALESCE(?, icon),
+      color = COALESCE(?, color),
+      contact_email = ?,
+      contact_phone = ?,
+      address = ?,
+      is_default = COALESCE(?, is_default),
+      updated_at = ?
+    WHERE id = ?
+  `).bind(
+    body.name,
+    body.description !== undefined ? body.description : null,
+    body.type,
+    body.icon,
+    body.color,
+    body.contactEmail !== undefined ? body.contactEmail : null,
+    body.contactPhone !== undefined ? body.contactPhone : null,
+    body.address !== undefined ? body.address : null,
+    body.isDefault !== undefined ? (body.isDefault ? 1 : 0) : null,
+    now,
+    id
+  ).run();
+
+  return json({ success: true });
+}
+
+async function deleteOrganization(id: string, env: Env): Promise<Response> {
+  // Check if it's the default organization
+  const org = await env.DB.prepare(`SELECT is_default FROM organizations WHERE id = ?`).bind(id).first();
+  if (org?.is_default) {
+    return error('Cannot delete default organization', 400);
+  }
+
+  // Delete all items and transactions in this organization
+  await env.DB.batch([
+    env.DB.prepare(`DELETE FROM transactions WHERE organization_id = ?`).bind(id),
+    env.DB.prepare(`DELETE FROM items WHERE organization_id = ?`).bind(id),
+    env.DB.prepare(`DELETE FROM organizations WHERE id = ?`).bind(id),
+  ]);
+
+  return json({ success: true });
 }
 
 // ============================================
 // Items Handlers
 // ============================================
 
-async function getItems(env: Env): Promise<Response> {
-  const result = await env.DB.prepare(`
-    SELECT * FROM items ORDER BY updated_at DESC
-  `).all();
+async function getItems(request: Request, env: Env): Promise<Response> {
+  const url = new URL(request.url);
+  const organizationId = url.searchParams.get('organizationId');
+
+  let query = `SELECT * FROM items`;
+  const params: string[] = [];
+
+  if (organizationId) {
+    query += ` WHERE organization_id = ?`;
+    params.push(organizationId);
+  }
+
+  query += ` ORDER BY updated_at DESC`;
+
+  const stmt = env.DB.prepare(query);
+  const result = await (params.length > 0 ? stmt.bind(...params) : stmt).all();
 
   return json(result.results?.map(mapItemFromDB) || []);
 }
@@ -161,9 +310,12 @@ async function createItem(request: Request, env: Env): Promise<Response> {
   const body = await request.json() as Record<string, unknown>;
   const now = new Date().toISOString();
 
+  // Default to 'default' organization if not specified
+  const organizationId = (body.organizationId as string) || 'default';
+
   await env.DB.prepare(`
-    INSERT INTO items (id, barcode, name, category, quantity, unit, condition, expiry_date, min_stock, location, notes, image_url, created_at, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO items (id, barcode, name, category, quantity, unit, condition, expiry_date, min_stock, location, notes, image_url, organization_id, created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).bind(
     body.id,
     body.barcode,
@@ -177,6 +329,7 @@ async function createItem(request: Request, env: Env): Promise<Response> {
     body.location || 'Unassigned',
     body.notes || null,
     body.imageUrl || null,
+    organizationId,
     now,
     now
   ).run();
@@ -200,6 +353,7 @@ async function updateItem(id: string, request: Request, env: Env): Promise<Respo
       location = COALESCE(?, location),
       notes = ?,
       image_url = ?,
+      organization_id = COALESCE(?, organization_id),
       updated_at = ?
     WHERE id = ?
   `).bind(
@@ -213,6 +367,7 @@ async function updateItem(id: string, request: Request, env: Env): Promise<Respo
     body.location,
     body.notes || null,
     body.imageUrl || null,
+    body.organizationId || null,
     now,
     id
   ).run();
@@ -233,13 +388,24 @@ async function getTransactions(request: Request, env: Env): Promise<Response> {
   const url = new URL(request.url);
   const limit = parseInt(url.searchParams.get('limit') || '50');
   const type = url.searchParams.get('type');
+  const organizationId = url.searchParams.get('organizationId');
 
   let query = `SELECT * FROM transactions`;
+  const conditions: string[] = [];
   const params: (string | number)[] = [];
 
   if (type && (type === 'in' || type === 'out')) {
-    query += ` WHERE type = ?`;
+    conditions.push(`type = ?`);
     params.push(type);
+  }
+
+  if (organizationId) {
+    conditions.push(`organization_id = ?`);
+    params.push(organizationId);
+  }
+
+  if (conditions.length > 0) {
+    query += ` WHERE ` + conditions.join(' AND ');
   }
 
   query += ` ORDER BY performed_at DESC LIMIT ?`;
@@ -255,12 +421,15 @@ async function createTransaction(request: Request, env: Env): Promise<Response> 
   const body = await request.json() as Record<string, unknown>;
   const now = new Date().toISOString();
 
+  // Default to 'default' organization if not specified
+  const organizationId = (body.organizationId as string) || 'default';
+
   // Start transaction
   const batch = [
     // Insert transaction record
     env.DB.prepare(`
-      INSERT INTO transactions (id, item_id, type, quantity, reason, recipient_info, performed_by, performed_at, notes)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO transactions (id, item_id, type, quantity, reason, recipient_info, performed_by, performed_at, notes, organization_id)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).bind(
       body.id,
       body.itemId,
@@ -270,7 +439,8 @@ async function createTransaction(request: Request, env: Env): Promise<Response> 
       body.recipientInfo || null,
       body.performedBy,
       body.performedAt || now,
-      body.notes || null
+      body.notes || null,
+      organizationId
     ),
     // Update item quantity
     body.type === 'in'
@@ -287,27 +457,44 @@ async function createTransaction(request: Request, env: Env): Promise<Response> 
 // Stats Handler
 // ============================================
 
-async function getStats(env: Env): Promise<Response> {
-  const [itemStats, todayTx] = await Promise.all([
-    env.DB.prepare(`
-      SELECT
-        COUNT(*) as total_items,
-        SUM(quantity) as total_quantity,
-        SUM(CASE WHEN quantity <= min_stock THEN 1 ELSE 0 END) as low_stock_count
-      FROM items
-    `).first(),
-    env.DB.prepare(`
-      SELECT
-        SUM(CASE WHEN type = 'in' THEN quantity ELSE 0 END) as inbound,
-        SUM(CASE WHEN type = 'out' THEN quantity ELSE 0 END) as outbound
-      FROM transactions
-      WHERE date(performed_at) = date('now')
-    `).first(),
-  ]);
+async function getStats(request: Request, env: Env): Promise<Response> {
+  const url = new URL(request.url);
+  const organizationId = url.searchParams.get('organizationId');
 
-  const categoryResult = await env.DB.prepare(`
-    SELECT category, SUM(quantity) as count FROM items GROUP BY category
-  `).all();
+  const orgFilter = organizationId ? `WHERE organization_id = ?` : '';
+  const orgFilterAnd = organizationId ? `AND organization_id = ?` : '';
+
+  const itemStatsQuery = `
+    SELECT
+      COUNT(*) as total_items,
+      SUM(quantity) as total_quantity,
+      SUM(CASE WHEN quantity <= min_stock THEN 1 ELSE 0 END) as low_stock_count
+    FROM items ${orgFilter}
+  `;
+
+  const todayTxQuery = `
+    SELECT
+      SUM(CASE WHEN type = 'in' THEN quantity ELSE 0 END) as inbound,
+      SUM(CASE WHEN type = 'out' THEN quantity ELSE 0 END) as outbound
+    FROM transactions
+    WHERE date(performed_at) = date('now') ${orgFilterAnd}
+  `;
+
+  const categoryQuery = `
+    SELECT category, SUM(quantity) as count FROM items ${orgFilter} GROUP BY category
+  `;
+
+  const [itemStats, todayTx, categoryResult] = await Promise.all([
+    organizationId
+      ? env.DB.prepare(itemStatsQuery).bind(organizationId).first()
+      : env.DB.prepare(itemStatsQuery).first(),
+    organizationId
+      ? env.DB.prepare(todayTxQuery).bind(organizationId).first()
+      : env.DB.prepare(todayTxQuery).first(),
+    organizationId
+      ? env.DB.prepare(categoryQuery).bind(organizationId).all()
+      : env.DB.prepare(categoryQuery).all(),
+  ]);
 
   const categoryBreakdown: Record<string, number> = {};
   categoryResult.results?.forEach((row: Record<string, unknown>) => {
@@ -1048,6 +1235,23 @@ Respond ONLY with JSON in this exact format:
 // Helper Functions
 // ============================================
 
+function mapOrganizationFromDB(row: Record<string, unknown>) {
+  return {
+    id: row.id,
+    name: row.name,
+    description: row.description,
+    type: row.type,
+    icon: row.icon,
+    color: row.color,
+    contactEmail: row.contact_email,
+    contactPhone: row.contact_phone,
+    address: row.address,
+    isDefault: row.is_default === 1,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
 function mapItemFromDB(row: Record<string, unknown>) {
   return {
     id: row.id,
@@ -1062,6 +1266,7 @@ function mapItemFromDB(row: Record<string, unknown>) {
     location: row.location,
     notes: row.notes,
     imageUrl: row.image_url,
+    organizationId: row.organization_id,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     syncStatus: 'synced',
@@ -1079,6 +1284,115 @@ function mapTransactionFromDB(row: Record<string, unknown>) {
     performedBy: row.performed_by,
     performedAt: row.performed_at,
     notes: row.notes,
+    organizationId: row.organization_id,
     syncStatus: 'synced',
   };
+}
+
+// ============= MARKETPLACE API =============
+
+// GET /api/marketplace/listings - Get all active listings
+async function getListings(env: Env, url: URL): Promise<Response> {
+  const orgId = url.searchParams.get('organization_id');
+  const type = url.searchParams.get('type');
+  
+  let query = `
+    SELECT l.*, i.name as item_name, i.category, o.name as organization_name
+    FROM listings l
+    JOIN items i ON l.item_id = i.id
+    JOIN organizations o ON l.organization_id = o.id
+    WHERE l.status = 'active'
+  `;
+  const params: string[] = [];
+  
+  if (orgId) {
+    query += ' AND l.organization_id = ?';
+    params.push(orgId);
+  }
+  if (type) {
+    query += ' AND l.listing_type = ?';
+    params.push(type);
+  }
+  
+  query += ' ORDER BY l.created_at DESC';
+  
+  const result = await env.DB.prepare(query).bind(...params).all();
+  return json({ listings: result.results });
+}
+
+// POST /api/marketplace/listings - Create a listing
+async function createListing(request: Request, env: Env): Promise<Response> {
+  const body = await request.json() as {
+    organization_id: string;
+    item_id: string;
+    quantity_available: number;
+    listing_type?: string;
+    description?: string;
+    expires_at?: string;
+  };
+  
+  const id = crypto.randomUUID();
+  await env.DB.prepare(`
+    INSERT INTO listings (id, organization_id, item_id, quantity_available, listing_type, description, expires_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
+  `).bind(
+    id,
+    body.organization_id,
+    body.item_id,
+    body.quantity_available,
+    body.listing_type || 'share',
+    body.description || null,
+    body.expires_at || null
+  ).run();
+  
+  return json({ id, message: 'Listing created' }, 201);
+}
+
+// POST /api/marketplace/requests - Create exchange request
+async function createExchangeRequest(request: Request, env: Env): Promise<Response> {
+  const body = await request.json() as {
+    listing_id: string;
+    requester_org_id: string;
+    quantity_requested: number;
+    message?: string;
+  };
+  
+  const id = crypto.randomUUID();
+  await env.DB.prepare(`
+    INSERT INTO exchange_requests (id, listing_id, requester_org_id, quantity_requested, message)
+    VALUES (?, ?, ?, ?, ?)
+  `).bind(id, body.listing_id, body.requester_org_id, body.quantity_requested, body.message || null).run();
+  
+  return json({ id, message: 'Request created' }, 201);
+}
+
+// GET /api/marketplace/requests - Get requests for an organization
+async function getExchangeRequests(env: Env, url: URL): Promise<Response> {
+  const orgId = url.searchParams.get('organization_id');
+  if (!orgId) return error('organization_id required');
+  
+  const result = await env.DB.prepare(`
+    SELECT er.*, l.item_id, i.name as item_name, o.name as requester_name
+    FROM exchange_requests er
+    JOIN listings l ON er.listing_id = l.id
+    JOIN items i ON l.item_id = i.id
+    JOIN organizations o ON er.requester_org_id = o.id
+    WHERE l.organization_id = ?
+    ORDER BY er.created_at DESC
+  `).bind(orgId).all();
+  
+  return json({ requests: result.results });
+}
+
+// PUT /api/marketplace/requests/:id - Update request status
+async function updateExchangeRequest(id: string, request: Request, env: Env): Promise<Response> {
+  const body = await request.json() as { status: string };
+  
+  await env.DB.prepare(`
+    UPDATE exchange_requests 
+    SET status = ?, responded_at = datetime('now')
+    WHERE id = ?
+  `).bind(body.status, id).run();
+  
+  return json({ message: 'Request updated' });
 }

@@ -11,16 +11,20 @@ import {
   Cloud,
   CloudOff,
   Check,
+  Store,
 } from 'lucide-react';
 import { Card, CardHeader, CardTitle, Button } from '@/components/ui';
+import { OrganizationSwitcher } from '@/components/OrganizationSwitcher';
 import { useDashboardStats, useLowStockItems } from '@/hooks/useInventory';
 import { useOnlineStatus } from '@/hooks/useOnlineStatus';
+import { useOrganization } from '@/contexts/OrganizationContext';
 import { CATEGORY_INFO } from '@/types';
 import { clsx } from 'clsx';
 import { format } from 'date-fns';
 
 export function Dashboard() {
   const { t } = useTranslation();
+  const { currentOrganization, loading: orgLoading } = useOrganization();
   const { stats, loading, refresh } = useDashboardStats();
   const { items: lowStockItems } = useLowStockItems();
   const { isOnline, isSyncing, pendingCount, lastSyncAt, sync } = useOnlineStatus();
@@ -30,7 +34,7 @@ export function Dashboard() {
     refresh();
   };
 
-  if (loading || !stats) {
+  if (loading || orgLoading || !stats) {
     return (
       <div className="p-4 space-y-4">
         {[1, 2, 3].map((i) => (
@@ -42,17 +46,17 @@ export function Dashboard() {
 
   return (
     <div className="p-4 pb-24 space-y-6">
-      {/* Header with Sync Status */}
-      <div className="pt-2 flex items-start justify-between">
-        <div>
+      {/* Header with Organization Switcher */}
+      <div className="pt-2 flex items-start justify-between gap-3">
+        <div className="flex-1 min-w-0">
           <p className="text-slate-500 text-sm">{t('dashboard.welcome')}</p>
-          <h1 className="text-2xl font-bold text-slate-800">{t('app.title')}</h1>
+          <OrganizationSwitcher />
         </div>
         <button
           onClick={handleSync}
           disabled={!isOnline || isSyncing}
           className={clsx(
-            'flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium transition',
+            'flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium transition flex-shrink-0',
             isOnline
               ? pendingCount > 0
                 ? 'bg-warning-100 text-warning-700'
@@ -71,7 +75,7 @@ export function Dashboard() {
           ) : (
             <Cloud className="h-4 w-4" />
           )}
-          <span>
+          <span className="hidden sm:inline">
             {isSyncing
               ? t('offline.syncing')
               : isOnline
@@ -246,6 +250,24 @@ export function Dashboard() {
             })}
         </div>
       </Card>
+
+      {/* Marketplace Quick Access */}
+      <Link to="/marketplace">
+        <Card className="bg-gradient-to-br from-emerald-500 to-teal-600 text-white">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="p-3 bg-white/20 rounded-xl">
+                <Store className="h-6 w-6" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-lg">Food Bank Marketplace</h3>
+                <p className="text-white/80 text-sm">Connect & share with other organizations</p>
+              </div>
+            </div>
+            <ChevronRight className="h-6 w-6 text-white/60" />
+          </div>
+        </Card>
+      </Link>
     </div>
   );
 }
