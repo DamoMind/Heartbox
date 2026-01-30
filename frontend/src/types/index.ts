@@ -81,7 +81,7 @@ export interface User {
 }
 
 export interface AppSettings {
-  language: 'en' | 'es';
+  language: 'en' | 'es' | 'zh';
   theme: 'light' | 'dark' | 'system';
   lowStockAlertEnabled: boolean;
   autoSync: boolean;

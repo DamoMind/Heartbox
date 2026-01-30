@@ -43,7 +43,7 @@ export function Settings() {
     }
   };
 
-  const handleLanguageChange = async (lang: 'en' | 'es') => {
+  const handleLanguageChange = async (lang: 'en' | 'es' | 'zh') => {
     await i18n.changeLanguage(lang);
     await saveSettings({ language: lang });
     setSettings(prev => prev ? { ...prev, language: lang } : null);
@@ -91,7 +91,7 @@ export function Settings() {
           </div>
         </div>
         <div className="flex gap-2">
-          {(['en', 'es'] as const).map((lang) => (
+          {(['en', 'es', 'zh'] as const).map((lang) => (
             <button
               key={lang}
               onClick={() => handleLanguageChange(lang)}
@@ -103,7 +103,7 @@ export function Settings() {
               )}
             >
               {settings.language === lang && <Check className="h-4 w-4" />}
-              {lang === 'en' ? 'English' : 'Espanol'}
+              {lang === 'en' ? 'English' : lang === 'es' ? 'Español' : '中文'}
             </button>
           ))}
         </div>

@@ -40,3 +40,8 @@ AI_WARNING_THRESHOLD = "100"
 
 # Secrets (set via wrangler secret put):
 # - EDGE_AI_GATEWAY_KEY: API key for edge-ai-gateway (if using Azure fallback)
+
+# Custom domain
+[[routes]]
+pattern = "heartbox-api.duku.app/*"
+zone_id = "ccdd7f3739c28a19257257ee45c93e15"
