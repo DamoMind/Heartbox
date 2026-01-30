@@ -64,8 +64,8 @@ export async function getDB(): Promise<IDBPDatabase<DonationDB>> {
         // Add organizationId index to existing store
         const tx = (db as unknown as IDBPDatabase<DonationDB>).transaction('items', 'readwrite');
         const store = tx.objectStore('items');
-        if (!store.indexNames.contains('by-organizationId')) {
-          store.createIndex('by-organizationId', 'organizationId');
+        if (store && !store.indexNames.contains('by-organizationId')) {
+          (store as unknown as IDBObjectStore).createIndex('by-organizationId', 'organizationId');
         }
       }
 
@@ -80,8 +80,8 @@ export async function getDB(): Promise<IDBPDatabase<DonationDB>> {
       } else if (oldVersion < 2) {
         const tx = (db as unknown as IDBPDatabase<DonationDB>).transaction('transactions', 'readwrite');
         const store = tx.objectStore('transactions');
-        if (!store.indexNames.contains('by-organizationId')) {
-          store.createIndex('by-organizationId', 'organizationId');
+        if (store && !store.indexNames.contains('by-organizationId')) {
+          (store as unknown as IDBObjectStore).createIndex('by-organizationId', 'organizationId');
         }
       }
 

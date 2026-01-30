@@ -129,6 +129,7 @@ export function ItemForm() {
         notes: notes || undefined,
         expiryDate: undefined,
         imageUrl: undefined,
+        organizationId: existingItem?.organizationId || 'default',
         createdAt: existingItem?.createdAt || new Date().toISOString(),
         updatedAt: new Date().toISOString(),
         syncStatus: 'pending' as const,

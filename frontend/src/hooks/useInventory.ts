@@ -225,6 +225,7 @@ export function useNewItem() {
       location: options?.location || 'Unassigned',
       expiryDate: options?.expiryDate,
       notes: options?.notes,
+      organizationId: 'default',
     };
   }, []);
 
